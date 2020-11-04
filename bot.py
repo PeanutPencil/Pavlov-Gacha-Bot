@@ -39,6 +39,37 @@ async def roll(ctx):
     event_handler.append(msg, data)
 
 
+@bot.command(name='card', help='Search for a card')
+async def search_card(ctx, query):
+    def _card_line(card):
+        if card['user']:
+            return f"{card['name']} with the {card['weapon']} owned by {card['user']['name']}"
+        else:
+            return f"{card['name']} with the {card['weapon']}"
+
+    _handle_user(ctx)
+    # Validation
+    if len(query) < 3:
+        await ctx.send(f"{ctx.message.author.mention}: Too few characters. Use 3 or more.")
+        return
+    # Get data from server
+    resp = requests.get(f'{DJANGO_URL}/cards/?q={query}')
+    print(resp.json())
+    if resp.status_code != 200:
+        # Handle the error
+        print(resp.status_code)
+        return
+    cards = resp.json()
+    if not cards:
+        await ctx.send(f"{ctx.message.author.mention}: No cards found.")
+        return
+    # Format message
+    msg = "\n".join(_card_line(c) for c in cards)
+    print(msg)
+    await ctx.send(msg)
+
+
+
 @bot.event
 async def on_reaction_add(reaction, user):
     # _handle_user(ctx)
@@ -91,7 +122,7 @@ def _handle_user(ctx):
             'name': ctx.message.author.name,
             'rolls': 10,
             'claims': 10,
-            # 'avatar_url': ctx.message.author.avatar_url,
+            'avatar_url': ctx.message.author.avatar_url,
         })
         print(resp.json())
         resp.raise_for_status()
@@ -101,9 +132,11 @@ def _handle_user(ctx):
 def _create_embed(card):
     embed = discord.Embed(
         title=f"{card['name']} with the {card['weapon']}",
-        # description="description",
+        description=card['rarity_str'],
     )
-    embed.set_footer(text=f"Owned by {card['user']['name']}" if card['user'] else "", icon_url="https://i.pinimg.com/originals/5b/b4/8b/5bb48b07fa6e3840bb3afa2bc821b882.jpg")
+    if card['user']:
+        embed.set_footer(text=f"Owned by {card['user']['name']}",
+                        icon_url=card['user']['avatar_url'])
     embed.set_image(url=f'http://vrmasterleague.com{card["image"]}')
     return embed
 
