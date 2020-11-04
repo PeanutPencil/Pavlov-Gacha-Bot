@@ -26,7 +26,9 @@ async def roll(ctx):
     # Get data from server
     resp = requests.post(f'{DJANGO_URL}/cards/roll/', data={'user_id': ctx.message.author.id})
     print(resp.json())
-    resp.raise_for_status()
+    if resp.status_code == 400:
+        await ctx.send(f"{ctx.message.author.mention}: You have no more rolls left")
+        return
     data = resp.json()
     # Format message
     embed = _create_embed(data)
@@ -49,9 +51,10 @@ async def on_reaction_add(reaction, user):
                 'card_id': card['id'],
             })
             print(resp.json())
-            if resp.status_code != 200:
+            if resp.status_code == 400:
                 print(resp.json())
-                return # Return an error msg?
+                await reaction.message.channel.send(f"{user.mention}: You have no more claims")
+                return
             # Get updated card information
             resp = requests.get(f'{DJANGO_URL}/cards/{card["id"]}/')
             print(resp.json())
@@ -88,6 +91,7 @@ def _handle_user(ctx):
             'name': ctx.message.author.name,
             'rolls': 10,
             'claims': 10,
+            # 'avatar_url': ctx.message.author.avatar_url,
         })
         print(resp.json())
         resp.raise_for_status()
@@ -99,7 +103,7 @@ def _create_embed(card):
         title=f"{card['name']} with the {card['weapon']}",
         # description="description",
     )
-    embed.set_footer(text=f"Owned by {card['user']['name']}" if card['user'] else "")
+    embed.set_footer(text=f"Owned by {card['user']['name']}" if card['user'] else "", icon_url="https://i.pinimg.com/originals/5b/b4/8b/5bb48b07fa6e3840bb3afa2bc821b882.jpg")
     embed.set_image(url=f'http://vrmasterleague.com{card["image"]}')
     return embed
 
